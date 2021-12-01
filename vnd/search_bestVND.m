@@ -2,32 +2,28 @@
 %
 % Author: Sebastian J. Schlecht
 % Date: 12/03/2018
-clear; clc; close all;
 
-global smoothingWindow;
-load('smoothWin.mat');
-smoothingWindow = Win;
+function search_bestVND(fs, numberFrequencyPoints, sequenceLengthMiliseconds, totalDecayDB, numberOfPulsesList, numberOfTrails)
 
-fs = 48000;
-numberFrequencyPoints = 4096;
-sequenceLengthMiliseconds = 30;
-totalDecayDB = -60;
+    global smoothingWindow;
+    load('smoothWin.mat', 'Win');
+    smoothingWindow = Win;
 
-numberOfPulsesList = [15 30];
+    for itPulse = 1:length(numberOfPulsesList)
+        numberOfPulses = numberOfPulsesList(itPulse);
 
-numberOfTrails = 50;
+        for it = 1:numberOfTrails
+            data = [];
 
-for itPulse = 1:2
-    numberOfPulses = numberOfPulsesList(itPulse);
-    for it = 1:numberOfTrails
-        data = [];
-        
-        %% Improve VND
-        [data.improved.pulseTime, data.improved.pulseGain, data.initial.pulseTime, data.initial.pulseGain] = ...
-            improveVND( numberOfPulses, sequenceLengthMiliseconds, totalDecayDB, numberFrequencyPoints, fs);
-        
-        %% disp and save
-        disp(it);
-        save(['./temporary/' num2str(numberOfPulses) '_' num2str(rand*1000000,'%07.f') '.mat'] ,'data');
-    end 
+            %% Improve VND
+            [data.improved.pulseTime, data.improved.pulseGain, data.initial.pulseTime, data.initial.pulseGain] = ...
+                improveVND(numberOfPulses, sequenceLengthMiliseconds, totalDecayDB, numberFrequencyPoints, fs);
+
+            %% disp and save
+            disp(it);
+            save(['./temporary/' num2str(numberOfPulses) '_' num2str(rand * 1000000, '%07.f') '.mat'], 'data');
+        end
+
+    end
+
 end

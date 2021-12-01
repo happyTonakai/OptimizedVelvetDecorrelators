@@ -1,15 +1,19 @@
 % create complete sequence data set for analysis
-clc; clear; close all;
 
-load('collectData.mat');
+function createSequenceData(fs, numberFrequencyPoints, sequenceLengthMiliseconds, totalDecayDB, numberOfPulsesList)
 
-Fs = 48000;
-len = 0.03 * Fs;
-numberOfSequences = size(data.improved30.pulseGain,2);
-totalDecaydB = -60;
+load('collectData.mat', 'data');
+len = sequenceLengthMiliseconds * 1e-3 * fs;
+numberOfSequences = size(data.("improved" + num2str(numberOfPulsesList(1))).pulseGain, 2);
 
-conditions = {'oVND30','oVND15','eVND','WNS'};
-dataFields = {'improved30','improved15','initial30','none'};
+conditions = cell(1, length(numberOfPulsesList));
+dataFields = conditions;
+for it = 1:length(numberOfPulsesList)
+    conditions{it} = ['oVND', num2str(numberOfPulsesList(it))];
+    dataFields{it} = ['improved', num2str(numberOfPulsesList(it))];
+end
+conditions = [conditions, {'eVND', 'WNS'}];
+dataFields = [dataFields, {['initial', num2str(max(numberOfPulsesList))], 'none'}];
 
 numberConditions = length(conditions);
 
@@ -17,48 +21,46 @@ for it = 1:numberConditions
     cond = conditions{it};
     disp(cond)
     
-    switch cond
-        case {'oVND30','oVND15','eVND'}
-            field = dataFields{it};
-            pulseGain = data.(field).pulseGain;
-            pulseTime = data.(field).pulseTime;
-            
-            sequence = closestVND(pulseTime,pulseGain, Fs);
-            sequence = sequence(1:len,:);
-        case 'WNS'
-            sequence = zeros(len,numberOfSequences);
-            for itSeq = 1:numberOfSequences
-                sequence(:,itSeq) = VND_wndecorr(len,totalDecaydB);
-            end
+    if strcmp(cond, 'WNS')
+        sequence = zeros(len,numberOfSequences);
+        for itSeq = 1:numberOfSequences
+            sequence(:,itSeq) = VND_wndecorr(len,totalDecayDB);
+        end
+    else % oVND, eVND
+        field = dataFields{it};
+        pulseGain = data.(field).pulseGain;
+        pulseTime = data.(field).pulseTime;
+        
+        sequence = closestVND(pulseTime,pulseGain, fs);
+        sequence = sequence(1:len,:);
     end
     
     sequence = sequence ./ sqrt(sum(sequence.^2,1));
     
-    numberFrequencyPoints = 4096;
-    [smooth,~] = thirdOctaveSmooth(sequence,numberFrequencyPoints,Fs);
+    [smooth,~] = thirdOctaveSmooth(sequence,numberFrequencyPoints,fs);
     
     m = mean(smooth,1);
     error = sqrt(mean((smooth - m ).^2,1));
     
-    [e, index] = sort(error,'ascend');
+    [~, index] = sort(error,'ascend');
     
     switch cond
-        case 'oVND30'
-            indexOVN30 = index;
+        case conditions{length(numberOfPulsesList)}
+            indexOVNmax = index;
         case 'eVND'
-            index = indexOVN30;
+            index = indexOVNmax;
     end
             
     local.(cond).sequence = sequence(:,index);
     local.(cond).smooth = smooth(:,index);
     local.(cond).error = error(:,index);
     
-    [coherenceFreq, local.(cond).coherence] = coherence(local.(cond).sequence, Fs);
+    [coherenceFreq, local.(cond).coherence] = coherence(local.(cond).sequence, fs);
      
 end
 
 dataSet = local;
-save('./data/sequenceData.mat','dataSet','conditions','Fs','coherenceFreq');
+save('./data/sequenceData.mat','dataSet','conditions','fs','coherenceFreq');
 
 
 
